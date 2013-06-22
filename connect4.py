@@ -36,28 +36,25 @@ class Board(object):
         return a_cell[0]>0 and a_cell[0]<self.size[0] and a_cell[1]>0 and a_cell[1]<self.size[1]
 
     def conxtn_one_dir (self, cell, dirtn, total):
-#        out = total
         #whether there is a same cell in a particular direction.e.g (-1,1)
         new_cell = [ cell[0]+dirtn[0], cell[1]+dirtn[1] ]
         if self.check_boundary(new_cell) and self.gameboard[new_cell[0]][new_cell[1]] == self.gameboard[cell[0]][cell[1]]:
-            print dirtn
-            final = self.conxtn_one_dir(new_cell, dirtn, total+1)
+            # another way to do it: final = self.conxtn_one_dir(new_cell, dirtn, total + 1 )
+            # and then add else: final = total
+            # to explicitly save the value at that point in that nested functionO...finally else: return final
+            return self.conxtn_one_dir(new_cell, dirtn, total + 1 )
         else:
-            final = total
-        return final
+            return total 
 
     def cal_connections (self, cell):
         if self.gameboard[cell[0]][cell[1]] == ' ':
-           value = 0
+           return 0
         else:
-           value = 0
-            #loop through all the neighbouring directions
+           temp = []
+           #loop through all the neighbouring directions
            for pos in self.rela_pos:
-              num = self.conxtn_one_dir ( cell, pos, value)
-              if num > value:
-                   # num_conxtn should be the max of all directions
-                 value = num 
-        return value
+               temp.append (self.conxtn_one_dir ( cell, pos, 0)) 
+           return max(temp)
 
     @property
     def connections (self):
@@ -101,9 +98,16 @@ def update_board ( a_board, row, col ):
        print  " you won !!! "
     return a_board   
     
+def get_possible_boards ( a_board ):
+    #given a certain board..where can you move
+
+def evaluate_board ( a_board ):
+    #evaluation result could be tuples (9,5,3) 
+    # is it winning 
+    # is it 
 def check_winning ( a_board ):
     for element in a_board.connections:
-        if 4 in element:
+        if 3 in element:
            print "connections  " + str(element)[1:-1] 
            return True
         else:
@@ -112,6 +116,7 @@ def check_winning ( a_board ):
 
 def check_ending ( a_board ):
     if check_winning( a_board ):
+       print " YOU WON!! " 
        return True
     else:
        for element in a_board.gameboard:
