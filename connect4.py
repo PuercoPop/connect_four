@@ -1,7 +1,13 @@
 #stab at connect four
+from os.path import realpath, join, dirname
+import logging
 import copy
 import random
 import itertools
+
+log_file = realpath(join(dirname(__file__),"connect4.log"))
+logging.basicConfig(filename=log_file, filemode="w+", level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 class Board(object):
 
@@ -69,7 +75,10 @@ class Board(object):
             print '|'+'|'.join(element)+'|'
       
 def play (board):
-    next_board = human_move_result( board, human_move() )
+    if board.turn == 1:
+       next_board = human_move_result( board, human_move() )
+    else:
+       next_board = minimax ( board, 0 )
     next_board.turn = -1 * board.turn 
     return next_board
 
@@ -98,21 +107,113 @@ def update_board ( a_board, row, col ):
        print  " you won !!! "
     return a_board   
     
-def get_possible_boards ( a_board ):
-    #given a certain board..where can you move
+def check_valid_move ( a_board, row, col ):
+    if a_board.gameboard[row][col] == ' ':
+      if row == 5:
+         return True
+      elif a_board.gameboard[row+1][col] != ' ':
+         return True
+      #TODO: add occasion where input is not int type
+      else:
+  #       print " invalid move. try again ^^ "
+         return False
+    else:
+      return False
 
-def evaluate_board ( a_board ):
-    #evaluation result could be tuples (9,5,3) 
-    # is it winning 
-    # is it 
+def get_avail_moves ( a_board ):
+    cells = []
+    for r in range( a_board.size[0] ):
+        for c in range( a_board.size[1] ):
+            if check_valid_move ( a_board, r, c):
+               cells.append ( [r,c] )
+    return cells
+
+def get_possible_boards ( a_board ):
+    boards = []
+    for cell in get_avail_moves ( a_board ):
+        new_board = update_board ( a_board, cell[0], cell[1] )
+        new_board.turn = -1 * new_board.turn
+        boards.append( new_board )
+    
+    log.info("===================================")
+    for b in boards:
+        log.info( " possible board: \n" )
+        for element in b.gameboard:
+           log.info( " possible board: \n{element}\n".format(element=element))
+        log.info( " ---------------")
+    log.info("===================================")
+
+    return boards
+
 def check_winning ( a_board ):
     for element in a_board.connections:
+        print "connections  " + str(element)[1:-1] 
         if 3 in element:
-           print "connections  " + str(element)[1:-1] 
            return True
-        else:
-           print "connections  " + str(element)[1:-1] 
     return False
+
+def num_center ( a_board ):
+    if a_board.turn == -1:
+       #TODO: use list.count() to refactor this?
+       l = [ x for x in a_board.p0_moves if x[1] == 3 ]
+    elif a_board.turn == 1:
+       l = [ x for x in a_board.p1_moves if x[1] == 3 ]
+    return len(l)
+
+def num_n_conxtn ( a_board , n ):
+    #cal number of 2s or 1s in the connections grid
+    ####  turn means it is someone's turn for next move
+    ###   but we want to evaluate the move that is JUST MADE
+    ###   switch turns back
+    ##    if -1 then evalue  'x'  1 --> evaluate 'o'
+    if a_board.turn == -1:
+       v = 0
+       for x in a_board.p0_moves:
+         if a_board.cal_connections (x) == n:
+            v += 1
+       return v
+    elif a_board.turn == 1:
+       vl = 0
+       for y in a_board.p1_moves:
+         if a_board.cal_connections (y) == n:
+            vl += 1
+       return vl
+
+def evaluate_board ( a_board ):
+    #evaluation result in tuples (9,5,3) 
+    return ( check_winning(a_board), num_center(a_board), num_n_conxtn(a_board, 2), num_n_conxtn(a_board,1),)
+
+def minimax ( a_board, depth ):
+    b = Board ( a_board )
+    if depth == 4:
+       print "evaluation   " , evaluate_board ( b)
+       return evaluate_board ( b )
+    if b.turn == -1:
+       value = (0,0,0)   #TODO...modify accoridng to evalu func
+    elif b.turn == 1:
+       value = (1,9,9)   #TODO> modify
+    for element in get_possible_boards ( b ):
+        print "posi board turn " , element.turn
+        print "posi board" , element.gameboard
+        v = minimax ( element, depth + 1 )
+        if b.turn == -1 and v > value:  
+          the_right_move = element
+          value = v
+          print  " max value is ",  value
+        elif b.turn == 1 and v < value:
+          the_right_move = element
+          value = v
+          print " min value is ", value
+
+    if b.turn == -1:
+       log.info("max value is {value}".format( value=value ))
+    elif b.turn == 1:
+       log.info("min value is {value}".format( value=value ))
+
+    if depth == 0:
+       return the_right_move
+    
+    return value     
 
 def check_ending ( a_board ):
     if check_winning( a_board ):
@@ -125,19 +226,11 @@ def check_ending ( a_board ):
                  return False
        return True
 
-def check_valid_move ( a_board, row, col ):
-    if a_board.gameboard[row][col] == ' ':
-      if row == 5:
-         return True
-      elif a_board.gameboard[row+1][col] != ' ':
-         return True
-      #TODO: add occasion where input is not int type
-      else:
-         print " invalid move. try again ^^ "
-         return False
-      
 def main():
     board = Board()
+
+#    board.p0_moves= [[3,4], [4,3], [4,5], [5,2], [5,4] ]
+#    board.p1_moves= [ [4,2], [4,4], [5,3], [5,5] ]
     while True:
           board.show()
           if check_ending( board ):
