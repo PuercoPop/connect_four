@@ -1,7 +1,6 @@
 #stab at connect four
 from os.path import realpath, join, dirname
 import logging
-import copy
 import random
 import itertools
 
@@ -11,17 +10,14 @@ log = logging.getLogger(__name__)
 
 class Board(object):
 
-    def __init__(self,board=None):
+    def __init__(self, p0moves=[], p1moves=[], turn=1):
        self.size = (6, 7)
-       if board == None:
-          self.p0_moves = []
-          self.p1_moves = []
-          self.turn = 1 
-       else:
-          self.p0_moves = copy.deepcopy(board.p0_moves)
-          self.p1_moves = copy.deepcopy(board.p1_moves)
-          self.turn = board.turn
-
+       self.p0_moves = p0moves 
+       self.p1_moves = p1moves
+       self.turn = turn 
+       
+    # can pass in arguments so when i copy i can make a copy
+    # for testing..i should be able to type in board like using text. easier to see
     @property
     def gameboard (self):
         gameboard = [[' ']*self.size[1] for x in range(self.size[0])]
@@ -73,137 +69,152 @@ class Board(object):
     def show (self):
         for element in self.gameboard:
             print '|'+'|'.join(element)+'|'
-      
+     
+    def move (self, move, turn=None ):   
+        #move is tuple
+        if turn != None:
+           self.turn = turn
+        elif self.turn == 1:
+           self.p0_moves.append(move)
+        elif self.turn == -1:
+           self.p1_moves.append(move)
+       # if check_winning( a_board ):
+       #    print  " you won !!! "
+        return self
+        
+    def check_valid_move ( self, move):
+        #move is tuple
+        if self.gameboard[move[0]][move[1]] ==' ':
+           if move[0]==5 or self.gameboard[move[0]+1][move[1]] != ' ':
+              return True
+           #TODO: add occasion where input is not int type
+           else:
+          #  print " invalid move. try again ^^ "
+              return False
+        else:
+          return False
+
+    def get_avail_moves ( self):
+        cells = []
+        for r in range( self.size[0] ):
+            for c in range( self.size[1] ):
+                if self.check_valid_move ( [r, c] ):
+                   cells.append ( [r,c] )
+        return cells
+
+    def get_possible_boards ( self ):
+        boards = []
+        for cell in self.get_avail_moves ():
+            new_board = self.move (cell[0],cell[1])
+            new_board.turn = -1 * new_board.turn
+            boards.append( new_board )
+        
+        log.info("===================================")
+        for b in boards:
+            log.info("possible board")
+            #print " possi board \n"
+            for element in b.gameboard:
+            #   print str(element)[1:-1]
+               log.info( "{element}\n".format(element=element))
+            log.info( " ---------------")
+        log.info("===================================")
+
+        return boards
+
+    def check_winning (self ):
+        for element in self.connections:
+            #print "connections  " + str(element)[1:-1] 
+            if 3 in element:
+               return True
+        return False
+
+    def check_ending ( self ):
+        if self.check_winning():
+           print " YOU WON!! " 
+           return True
+        else:
+           for element in self.gameboard:
+               for cell in element:
+                  if cell == ' ':
+                     return False
+           return True
+
+    def num_center ( self ):
+        if self.turn == -1:
+           #TODO: use list.count() to refactor this?
+           return len( [ x for x in self.p0_moves if x[1] == 3 ] )
+        elif self.turn == 1:
+           return len( [ x for x in self.p1_moves if x[1] == 3 ] )
+
+    def num_n_conxtn ( self, n ):
+        #cal number of 2s or 1s in the connections grid
+        ####  turn means it is someone's turn for next move
+        ###   but we want to evaluate the move that is JUST MADE
+        ###   switch turns back
+        ##    if -1 then evalue  'x'  1 --> evaluate 'o'
+        if self.turn == -1:
+           v = 0
+           for x in self.p0_moves:
+             if self.cal_connections (x) == n:
+                v += 1
+           return v
+        elif self.turn == 1:
+           vl = 0
+           for y in self.p1_moves:
+             if self.cal_connections (y) == n:
+                vl += 1
+           return vl
+
+    def evaluate_board ( self ):
+        #evaluation result in tuples (9,5,3) 
+        return ( self.check_winning(), self.num_n_conxtn(2), self.num_n_conxtn(1), self.num_center())
+ 
 def play (board):
     if board.turn == 1:
-       next_board = human_move_result( board, human_move() )
+       next_board = human_move(board)
     else:
        next_board = minimax ( board, 0 )
     next_board.turn = -1 * board.turn 
     return next_board
 
-def human_move ():
+def human_move ( a_board ):
+    #let human make the move
     print "place your move."
     print "enter row number 0 to 5. Bottom row is 0"
     row = int(raw_input())
     print"enter column number 0 to 6"
     col = int(raw_input())
-    return ((5-row),col)
+    the_move = ((5-row),col)
 
-def human_move_result ( a_board, the_move ):
-    if check_valid_move(a_board, the_move[0], the_move[1]) :
-       new_board = update_board(a_board, the_move[0], the_move[1])
+    if a_board.check_valid_move( the_move ):
+       new_board = a_board.move ( the_move )
     else:
-       new_board =  human_move_result( a_board, human_move())
+       new_board =  human_move ( a_board )
     return new_board
-
-def update_board ( a_board, row, col ):   
-    a_board = Board(a_board)
-    if a_board.turn == 1:
-       a_board.p0_moves.append([row, col])
-    elif a_board.turn == -1:
-        a_board.p1_moves.append([row, col])
-    if check_winning( a_board ):
-       print  " you won !!! "
-    return a_board   
-    
-def check_valid_move ( a_board, row, col ):
-    if a_board.gameboard[row][col] == ' ':
-      if row == 5:
-         return True
-      elif a_board.gameboard[row+1][col] != ' ':
-         return True
-      #TODO: add occasion where input is not int type
-      else:
-  #       print " invalid move. try again ^^ "
-         return False
-    else:
-      return False
-
-def get_avail_moves ( a_board ):
-    cells = []
-    for r in range( a_board.size[0] ):
-        for c in range( a_board.size[1] ):
-            if check_valid_move ( a_board, r, c):
-               cells.append ( [r,c] )
-    return cells
-
-def get_possible_boards ( a_board ):
-    boards = []
-    for cell in get_avail_moves ( a_board ):
-        new_board = update_board ( a_board, cell[0], cell[1] )
-        new_board.turn = -1 * new_board.turn
-        boards.append( new_board )
-    
-    log.info("===================================")
-    for b in boards:
-        log.info( " possible board: \n" )
-        for element in b.gameboard:
-           log.info( " possible board: \n{element}\n".format(element=element))
-        log.info( " ---------------")
-    log.info("===================================")
-
-    return boards
-
-def check_winning ( a_board ):
-    for element in a_board.connections:
-        print "connections  " + str(element)[1:-1] 
-        if 3 in element:
-           return True
-    return False
-
-def num_center ( a_board ):
-    if a_board.turn == -1:
-       #TODO: use list.count() to refactor this?
-       l = [ x for x in a_board.p0_moves if x[1] == 3 ]
-    elif a_board.turn == 1:
-       l = [ x for x in a_board.p1_moves if x[1] == 3 ]
-    return len(l)
-
-def num_n_conxtn ( a_board , n ):
-    #cal number of 2s or 1s in the connections grid
-    ####  turn means it is someone's turn for next move
-    ###   but we want to evaluate the move that is JUST MADE
-    ###   switch turns back
-    ##    if -1 then evalue  'x'  1 --> evaluate 'o'
-    if a_board.turn == -1:
-       v = 0
-       for x in a_board.p0_moves:
-         if a_board.cal_connections (x) == n:
-            v += 1
-       return v
-    elif a_board.turn == 1:
-       vl = 0
-       for y in a_board.p1_moves:
-         if a_board.cal_connections (y) == n:
-            vl += 1
-       return vl
-
-def evaluate_board ( a_board ):
-    #evaluation result in tuples (9,5,3) 
-    return ( check_winning(a_board), num_center(a_board), num_n_conxtn(a_board, 2), num_n_conxtn(a_board,1),)
 
 def minimax ( a_board, depth ):
     b = Board ( a_board )
     if depth == 4:
-       print "evaluation   " , evaluate_board ( b)
-       return evaluate_board ( b )
+#       print "evaluation   " , evaluate_board ( b)
+       return a_board.evaluate_board ()
     if b.turn == -1:
        value = (0,0,0)   #TODO...modify accoridng to evalu func
     elif b.turn == 1:
        value = (1,9,9)   #TODO> modify
-    for element in get_possible_boards ( b ):
-        print "posi board turn " , element.turn
-        print "posi board" , element.gameboard
+    for element in a_board.get_possible_boards ():
+        #print "posi board turn " , element.turn
+        #print "posi board" , element.gameboard
         v = minimax ( element, depth + 1 )
         if b.turn == -1 and v > value:  
           the_right_move = element
           value = v
-          print  " max value is ",  value
+          log.info("max value is {value}".format( value= value ))
+       #   print  " max value is ",  value
         elif b.turn == 1 and v < value:
           the_right_move = element
           value = v
-          print " min value is ", value
+          log.info("min value is {value}".format( value=value ))
+       #   print " min value is ", value
 
     if b.turn == -1:
        log.info("max value is {value}".format( value=value ))
@@ -215,25 +226,13 @@ def minimax ( a_board, depth ):
     
     return value     
 
-def check_ending ( a_board ):
-    if check_winning( a_board ):
-       print " YOU WON!! " 
-       return True
-    else:
-       for element in a_board.gameboard:
-           for cell in element:
-              if cell == ' ':
-                 return False
-       return True
-
 def main():
     board = Board()
-
-#    board.p0_moves= [[3,4], [4,3], [4,5], [5,2], [5,4] ]
-#    board.p1_moves= [ [4,2], [4,4], [5,3], [5,5] ]
+#   board.p0_moves= [[3,4], [4,3], [4,5], [5,2], [5,4] ]
+#   board.p1_moves= [ [4,2], [4,4], [5,3], [5,5] ]
     while True:
           board.show()
-          if check_ending( board ):
+          if board.check_ending():
              break
           else:
              board = play(board)
