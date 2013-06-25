@@ -1,32 +1,53 @@
 #stab at connect four
-from os.path import realpath, join, dirname
-import logging
 import random
 import itertools
-
-log_file = realpath(join(dirname(__file__),"connect4.log"))
-logging.basicConfig(filename=log_file, filemode="w+", level=logging.DEBUG)
-log = logging.getLogger(__name__)
+from log import log
+from player import DumbCpuPlayer
 
 class Board(object):
-
-    def __init__(self, p0moves=[], p1moves=[], turn=1):
-#       if p0moves is None:
-#         p0moves = []
+    def __init__(self, board=None):
        self.size = (6, 7)
-       self.p0_moves = p0moves[:]
-       self.p1_moves = p1moves[:]
-       self.turn = turn 
-    
+       if board:
+           self._board = board
+       else:
+           rows, columns = self.size
+           self._board = [" "] * rows * columns
+
+    def retrieve_square(row, col):
+        pass
+
+    def is_move_valid(self, column):
+        return (0 <= column <=6) and not self.is_column_full(column)
+
+
+    def is_column_full(column_number):
+        return not (" " in self.column(column_number))
+
+    def column(column_number):
+        return [ cell for (index, cell)
+                 in enumerate(self._board)
+                 if index % 7 == column_number ]
+
+    def move(column_number, player):
+        index = self.first_empty_row(column_number)
+        updated_board = self._board[:]
+        updated_board[index] = player.symbol
+        return updated_board
+
+    def first_empty_row(column):
+        for (index, cell) in enumerate(self._board):
+            if index % 7 == column and cell == " ":
+                return index
+
     @classmethod
-    def for_testing(cls, board_string, turn=1):
+    def from_string(cls, board_string, turn=1):
         #convert string to p0 and p1 moves
         p0 = []
         p1 = []
         for index, ele, in enumerate(board_string.split(',')):
            for i, e in enumerate(ele):
               if e == 'x':
-                  p0.append([index, i]) 
+                  p0.append([index, i])
               elif e == 'o':
                   p1.append([index, i])
         b = cls (p0, p1, turn)
@@ -60,7 +81,7 @@ class Board(object):
             # to explicitly save the value at that point in that nested functionO...finally else: return final
             return self.conxtn_one_dir(new_cell, dirtn, total + 1 )
         else:
-            return total 
+            return total
 
     def cal_connections (self, cell):
         if self.gameboard[cell[0]][cell[1]] == ' ':
@@ -69,7 +90,7 @@ class Board(object):
            temp = []
            #loop through all the neighbouring directions
            for pos in self.rela_pos:
-               temp.append (self.conxtn_one_dir ( cell, pos, 0)) 
+               temp.append (self.conxtn_one_dir ( cell, pos, 0))
            return max(temp)
 
     @property
@@ -80,11 +101,14 @@ class Board(object):
                connections[r][c] = self.cal_connections( [r,c] )
         return connections
 
-    def show (self):
-        for element in self.gameboard:
-            print '|'+'|'.join(element)+'|'
-     
-    def move (self, move, turn=None ):   
+    def __repr__(self):
+        result = []
+        for row in self.rows:
+            result.append(row + "\n")
+        return ''.join(result)
+
+
+    def move (self, move, turn=None ):
         #move is tuple/list. return a brand new board
         b = Board( self.p0_moves,self.p1_moves)
         if turn != None:
@@ -96,10 +120,14 @@ class Board(object):
        # if check_winning( a_board ):
        #    print  " you won !!! "
         return b
-        
+
+    def is_square_empty(self, row, col):
+        return self.gameboard[row][col] ==' '
+
     def check_valid_move ( self, move):
         #move is tuple
-        if self.gameboard[move[0]][move[1]] ==' ':
+        row, col = move
+        if self.is_square_empty(row, col):
            if move[0]==5 or self.gameboard[move[0]+1][move[1]] != ' ':
               return True
            #TODO: add occasion where input is not int type
@@ -125,7 +153,7 @@ class Board(object):
             print new_board.gameboard
             new_board.turn = -1 * new_board.turn
             boards.append( new_board )
-        
+
         log.info("===================================")
         for b in boards:
             log.info("possible board")
@@ -140,21 +168,21 @@ class Board(object):
 
     def check_winning (self ):
         for element in self.connections:
-            #print "connections  " + str(element)[1:-1] 
+            #print "connections  " + str(element)[1:-1]
             if 3 in element:
                return True
         return False
 
-    def check_ending ( self ):
-        if self.check_winning():
-           print " YOU WON!! " 
-           return True
-        else:
-           for element in self.gameboard:
-               for cell in element:
-                  if cell == ' ':
-                     return False
-           return True
+    def has_ended(self, ):
+        return self.winner or self.is_full
+
+    @property
+    def is_full(self, ):
+        return " " in self._board
+
+    @property
+    def winner(self,):
+        raise NotImplementedError
 
     def num_center ( self ):
         if self.turn == -1:
@@ -183,15 +211,15 @@ class Board(object):
            return vl
 
     def evaluate_board ( self ):
-        #evaluation result in tuples (9,5,3) 
+        #evaluation result in tuples (9,5,3)
         return ( self.check_winning(), self.num_n_conxtn(2), self.num_n_conxtn(1), self.num_center())
- 
+
 def play (board):
     if board.turn == 1:
        next_board = human_move(board)
     else:
        next_board = minimax ( board, 0 )
-    next_board.turn = -1 * board.turn 
+    next_board.turn = -1 * board.turn
     return next_board
 
 def human_move ( a_board ):
@@ -223,7 +251,7 @@ def minimax ( a_board, depth ):
         #print "posi board turn " , element.turn
         #print "posi board" , element.gameboard
         v = minimax ( element, depth + 1 )
-        if b.turn == -1 and v > value:  
+        if b.turn == -1 and v > value:
           the_right_move = element
           value = v
           log.info("max value is {value}".format( value= value ))
@@ -241,21 +269,51 @@ def minimax ( a_board, depth ):
 
     if depth == 0:
        return the_right_move
-    
-    return value     
 
-def main():
-    b = Board()
-    s = ',,,nnnxnnn,nnoxxon,onoxoxn'
-    board = b.for_testing ( s, -1)
-#   board.p0_moves= [[3,4], [4,3], [4,5], [5,2], [5,4] ]
-#   board.p1_moves= [ [4,2], [4,4], [5,3], [5,5] ]
-    while True:
-          board.show()
-          if board.check_ending():
-             break
-          else:
-             board = play(board)
+    return value
+
+
+class ConnectFour(object):
+    def __init__(self, player_1, player_2, board=None):
+        self.current_player = player_1
+
+        if board is None:
+            self.board = Board()
+        else:
+            self.board = board
+
+    def start(self):
+        print self.board
+        while not self.has_ended():
+            self.board, self.current_player = self.next_turn()
+            print self.board
+        print "{player} has won".format(player=self.winner)
+
+
+    def next_turn(self):
+        proposed_move = self.current_player.move()
+        if self.board.is_move_valid(proposed_move):
+            return (self.board.move(proposed_move, current_player),
+                    self.next_player(current_player))
+        else:
+            self.next_turn()
+
+    def next_player(player):
+        if self.player_1 == player:
+            return self.player_2
+        else:
+            return self.player_1
+
+
+    def has_ended(self):
+        return self.board.has_ended()
+
+    @property
+    def winner(self):
+        return self.board.winner
+
 
 if __name__=="__main__":
-   main()
+    game = ConnectFour(player_1=DumbCpuPlayer("X"),
+                       player_2=DumbCpuPlayer("O"))
+    game.start()
