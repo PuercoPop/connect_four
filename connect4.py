@@ -11,13 +11,27 @@ log = logging.getLogger(__name__)
 class Board(object):
 
     def __init__(self, p0moves=[], p1moves=[], turn=1):
+#       if p0moves is None:
+#         p0moves = []
        self.size = (6, 7)
-       self.p0_moves = p0moves 
-       self.p1_moves = p1moves
+       self.p0_moves = p0moves[:]
+       self.p1_moves = p1moves[:]
        self.turn = turn 
-       
-    # can pass in arguments so when i copy i can make a copy
-    # for testing..i should be able to type in board like using text. easier to see
+    
+    @classmethod
+    def for_testing(cls, board_string, turn=1):
+        #convert string to p0 and p1 moves
+        p0 = []
+        p1 = []
+        for index, ele, in enumerate(board_string.split(',')):
+           for i, e in enumerate(ele):
+              if e == 'x':
+                  p0.append([index, i]) 
+              elif e == 'o':
+                  p1.append([index, i])
+        b = cls (p0, p1, turn)
+        return b
+
     @property
     def gameboard (self):
         gameboard = [[' ']*self.size[1] for x in range(self.size[0])]
@@ -71,16 +85,17 @@ class Board(object):
             print '|'+'|'.join(element)+'|'
      
     def move (self, move, turn=None ):   
-        #move is tuple
+        #move is tuple/list. return a brand new board
+        b = Board( self.p0_moves,self.p1_moves)
         if turn != None:
-           self.turn = turn
-        elif self.turn == 1:
-           self.p0_moves.append(move)
-        elif self.turn == -1:
-           self.p1_moves.append(move)
+           b.turn = turn
+        elif b.turn == 1:
+           b.p0_moves.append(move)
+        elif b.turn == -1:
+           b.p1_moves.append(move)
        # if check_winning( a_board ):
        #    print  " you won !!! "
-        return self
+        return b
         
     def check_valid_move ( self, move):
         #move is tuple
@@ -105,7 +120,9 @@ class Board(object):
     def get_possible_boards ( self ):
         boards = []
         for cell in self.get_avail_moves ():
-            new_board = self.move (cell[0],cell[1])
+            print cell
+            new_board = self.move ( cell )
+            print new_board.gameboard
             new_board.turn = -1 * new_board.turn
             boards.append( new_board )
         
@@ -193,15 +210,16 @@ def human_move ( a_board ):
     return new_board
 
 def minimax ( a_board, depth ):
-    b = Board ( a_board )
-    if depth == 4:
+    b = Board ( a_board.p0_moves, a_board.p1_moves )
+    if depth == 1:
 #       print "evaluation   " , evaluate_board ( b)
        return a_board.evaluate_board ()
     if b.turn == -1:
        value = (0,0,0)   #TODO...modify accoridng to evalu func
     elif b.turn == 1:
        value = (1,9,9)   #TODO> modify
-    for element in a_board.get_possible_boards ():
+
+    for element in b.get_possible_boards ():
         #print "posi board turn " , element.turn
         #print "posi board" , element.gameboard
         v = minimax ( element, depth + 1 )
@@ -227,7 +245,9 @@ def minimax ( a_board, depth ):
     return value     
 
 def main():
-    board = Board()
+    b = Board()
+    s = ',,,nnnxnnn,nnoxxon,onoxoxn'
+    board = b.for_testing ( s, -1)
 #   board.p0_moves= [[3,4], [4,3], [4,5], [5,2], [5,4] ]
 #   board.p1_moves= [ [4,2], [4,4], [5,3], [5,5] ]
     while True:
